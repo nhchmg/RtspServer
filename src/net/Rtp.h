@@ -5,11 +5,12 @@
 
 #define RTP_VESION              2
 
-#define RTP_PAYLOAD_TYPE_H264   96
+#define RTP_PAYLOAD_TYPE_H264   98
 #define RTP_PAYLOAD_TYPE_AAC    97
 
 #define RTP_HEADER_SIZE         12
-#define RTP_MAX_PKT_SIZE        1400
+//#define RTP_MAX_PKT_SIZE        1400
+#define RTP_MAX_PKT_SIZE        64000
 
 struct RtpHeader
 {

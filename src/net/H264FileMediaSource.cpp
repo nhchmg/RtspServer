@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -21,10 +22,17 @@ H264FileMediaSource::H264FileMediaSource(UsageEnvironment* env, const std::strin
     MediaSource(env),
     mFile(file)
 {
-    mFd = ::open(file.c_str(), O_RDONLY);
-    assert(mFd > 0);
+    if(0 == strcmp("-" ,file.c_str()) )
+    {
+      mFd = STDIN_FILENO;
+    }
+    else
+    {
+      mFd = ::open(file.c_str(), O_RDONLY);
+    }
+    assert(mFd > -1);
 
-    setFps(25);
+    setFps(24);
 
     for(int i = 0; i < DEFAULT_FRAME_NUM; ++i)
         mEnv->threadPool()->addTask(mTask);
@@ -33,6 +41,87 @@ H264FileMediaSource::H264FileMediaSource(UsageEnvironment* env, const std::strin
 H264FileMediaSource::~H264FileMediaSource()
 {
     ::close(mFd);
+}
+
+
+
+static int copy_nal_from_file(int fd, uint8_t *buf, int *len)
+{
+    char tmpbuf[4];     /* i have forgotten what this var mean */
+    char tmpbuf2[1];    /* i have forgotten what this var mean */
+    int flag = 0;       /* i have forgotten what this var mean */
+    int ret;
+
+#if 0
+    ret = read(fd,tmpbuf, 4);
+    if (!ret)
+        return 0;
+#endif
+
+    *len = 0;
+
+    do {
+        ret = read(fd,tmpbuf2, 1);
+        if (!ret) {
+            return -1;
+        }
+        if (!flag && tmpbuf2[0] != 0x0) {
+            buf[*len] = tmpbuf2[0];
+            (*len)++;
+            // debug_print("len is %d", *len);
+        } else if (!flag && tmpbuf2[0] == 0x0) {
+            flag = 1;
+            tmpbuf[0] = tmpbuf2[0];
+            //debug_print("len is %d", *len);
+        } else if (flag) {
+            switch (flag) {
+            case 1:
+                if (tmpbuf2[0] == 0x0) {
+                    flag++;
+                    tmpbuf[1] = tmpbuf2[0];
+                } else {
+                    flag = 0;
+                    buf[*len] = tmpbuf[0];
+                    (*len)++;
+                    buf[*len] = tmpbuf2[0];
+                    (*len)++;
+                }
+                break;
+            case 2:
+                if (tmpbuf2[0] == 0x0) {
+                    flag++;
+                    tmpbuf[2] = tmpbuf2[0];
+                } 
+                /*
+                else if (tmpbuf2[0] == 0x1) {
+                    flag = 0;
+                    return *len;
+                }
+                */
+                else {
+                    flag = 0;
+                    buf[*len] = tmpbuf[0];
+                    (*len)++;
+                    buf[*len] = tmpbuf[1];
+                    (*len)++;
+                    buf[*len] = tmpbuf2[0];
+                    (*len)++;
+                }
+                break;
+            case 3:
+                if (tmpbuf2[0] == 0x1) {
+                    flag = 0;
+                    return *len;
+                } else {
+                    flag = 0;
+                    break;
+                }
+            }
+        }
+
+    } while (1);
+
+    return *len;
 }
 
 void H264FileMediaSource::readFrame()
@@ -45,19 +134,11 @@ void H264FileMediaSource::readFrame()
     AVFrame* frame = mAVFrameInputQueue.front();
 
     frame->mFrameSize = getFrameFromH264File(mFd, frame->mBuffer, FRAME_MAX_SIZE);
+
+
     if(frame->mFrameSize < 0)
         return;
-
-    if(startCode3(frame->mBuffer))
-    {
-        frame->mFrame = frame->mBuffer+3;
-        frame->mFrameSize -= 3;
-    }
-    else
-    {
-        frame->mFrame = frame->mBuffer+4;
-        frame->mFrameSize -= 4;
-    }
+    frame->mFrame = frame->mBuffer;
 
     mAVFrameInputQueue.pop();
     mAVFrameOutputQueue.push(frame);
@@ -102,27 +183,18 @@ static uint8_t* findNextStartCode(uint8_t* buf, int len)
 
 int H264FileMediaSource::getFrameFromH264File(int fd, uint8_t* frame, int size)
 {
-    int rSize, frameSize;
-    uint8_t* nextStartCode;
 
     if(fd < 0)
         return fd;
-
-    rSize = read(fd, frame, size);
-    if(!startCode3(frame) && !startCode4(frame))
-        return -1;
+    int len = size - 4 ;
     
-    nextStartCode = findNextStartCode(frame+3, rSize-3);
-    if(!nextStartCode)
-    {
-        lseek(fd, 0, SEEK_SET);
-        frameSize = rSize;
-    }
-    else
-    {
-        frameSize = (nextStartCode-frame);
-        lseek(fd, frameSize-rSize, SEEK_CUR);
-    }
+    char nal[4];
+    nal[0] = 0;
+    nal[0] = 0;
+    nal[0] = 0;
+    nal[0] = 1;
+    memcpy(frame,nal,4);
 
-    return frameSize;
+    return  copy_nal_from_file(fd,frame+4,&len);
+    
 }

@@ -61,6 +61,7 @@ void H264RtpSink::handleFrame(AVFrame* frame)
     }
     else
     {
+        abort();
         int pktNum = frame->mFrameSize / RTP_MAX_PKT_SIZE;       // 有几个完整的包
         int remainPktSize = frame->mFrameSize % RTP_MAX_PKT_SIZE; // 剩余不完整包的大小
         int i, pos = 1;

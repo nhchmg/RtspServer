@@ -8,7 +8,7 @@ TOR_DIR 	= $(shell pwd)
 SRC_DIR 	= $(TOR_DIR)/src
 OBJS_PATH 	= $(TOR_DIR)/objs
 
-CXX_FLAGS 	= -O2 -g -I$(TOR_DIR)/src
+CXX_FLAGS 	= -O0 -g -I$(TOR_DIR)/src
 
 LD_FLAGS 	= -lpthread -lrt
 

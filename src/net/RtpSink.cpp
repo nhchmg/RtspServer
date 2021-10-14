@@ -42,12 +42,12 @@ void RtpSink::setSendFrameCallback(SendPacketCallback cb, void* arg1, void* arg2
 void RtpSink::sendRtpPacket(RtpPacket* packet)
 {
     RtpHeader* rtpHead = packet->mRtpHeadr;
-    rtpHead->csrcLen = mCsrcLen;
-    rtpHead->extension = mExtension;
-    rtpHead->padding = mPadding;
+    rtpHead->csrcLen = 0;
+    rtpHead->extension = 0;
+    rtpHead->padding = 0;
     rtpHead->version = mVersion;
     rtpHead->payloadType = mPayloadType;
-    rtpHead->marker = mMarker;
+    rtpHead->marker = 1;
     rtpHead->seq = htons(mSeq);
     rtpHead->timestamp = htonl(mTimestamp);
     rtpHead->ssrc = htonl(mSSRC);
