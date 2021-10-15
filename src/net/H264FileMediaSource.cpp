@@ -133,12 +133,24 @@ void H264FileMediaSource::readFrame()
 
     AVFrame* frame = mAVFrameInputQueue.front();
 
-    frame->mFrameSize = getFrameFromH264File(mFd, frame->mBuffer, FRAME_MAX_SIZE);
+    do
+    {
+      frame->mFrameSize = getFrameFromH264File(mFd, frame->mBuffer, FRAME_MAX_SIZE);
 
+    }while(frame->mFrameSize <= 4);
 
-    if(frame->mFrameSize < 0)
-        return;
     frame->mFrame = frame->mBuffer;
+
+    printf("frame->mFrameSize =0x%x\n",frame->mFrameSize );
+
+    static bool bWrite = 0;
+    if (!bWrite)
+    {
+      bWrite = 1;
+      int fd1 = open("./frame.data", O_CREAT | O_WRONLY);
+      write(fd1,frame->mFrame,frame->mFrameSize);
+      close(fd1);
+    }
 
     mAVFrameInputQueue.pop();
     mAVFrameOutputQueue.push(frame);
@@ -190,11 +202,13 @@ int H264FileMediaSource::getFrameFromH264File(int fd, uint8_t* frame, int size)
     
     char nal[4];
     nal[0] = 0;
-    nal[0] = 0;
-    nal[0] = 0;
-    nal[0] = 1;
+    nal[1] = 0;
+    nal[2] = 0;
+    nal[3] = 1;
     memcpy(frame,nal,4);
 
-    return  copy_nal_from_file(fd,frame+4,&len);
+    len =  4 + copy_nal_from_file(fd,frame+4,&len);
     
+    
+    return len;
 }
